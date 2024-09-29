@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package com.assignment.task1.protobuf;
+option java_package = "com.assignment.task1.protobuf";
+option java_multiple_files = true;
+
+import "google/protobuf/timestamp.proto";
+
+message LoginMessageV2 {
+  // Type of the event
+  string event_type = 1;
+  // Timestamp for the login event
+  google.protobuf.Timestamp timestamp = 10;
+  // Player ID that identifies an unique player account
+  string player_id = 11;
+  // Client platform
+  string platform = 12;
+  // Client version
+  int32 client_version = 13;
+  // Geolocated country code
+  string country = 14;
+}

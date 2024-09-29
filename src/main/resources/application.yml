@@ -1,0 +1,18 @@
+app:
+  aws:
+    access-key: "${AWS_ACCESS_KEY}"
+    secret-key: "${AWS_SECRET_KEY}"
+    region: "${AWS_REGION:us-east-1}"
+    stream-name: "${AWS_STREAM_NAME:default-stream-name}"
+  buffer:
+    size: 10
+    time-ms: 5000  # Flush buffer every 5 seconds
+  logging:
+    level: "INFO"  # DEBUG, INFO, WARN, ERROR
+  output:git log -p
+    frequency-ms: 60000  # Output results every 60,000 ms (1 minute)
+    enable-compression: false
+  s3:
+    bucket-name: "s3-kinesis-bucket"  # For future S3 integration
+  dedup:
+    window-minutes: 1
