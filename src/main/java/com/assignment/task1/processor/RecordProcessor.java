@@ -3,7 +3,8 @@ package com.assignment.task1.processor;
 import com.assignment.task1.deduplication.SlidingWindowDeduplication;
 import com.assignment.task1.protobuf.LoginMessageV1;
 import com.assignment.task1.protobuf.LoginMessageV2;
-import com.google.protobuf.InvalidProtocolBufferException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.util.JsonFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,25 +28,26 @@ public class RecordProcessor {
     public void processRecord(String jsonString, Set<String> uniquePlayerLogins,
                               ConcurrentMap<String, Set<String>> uniquePlayerLoginsByCountry) {
         try {
-            // Attempt to parse with V2 schema
-            LoginMessageV2.Builder builderV2 = LoginMessageV2.newBuilder();
-            JsonFormat.parser().ignoringUnknownFields().merge(jsonString, builderV2);
-            LoginMessageV2 messageV2 = builderV2.build();
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode jsonNode = objectMapper.readTree(jsonString);
 
-            handleMessageV2(messageV2, uniquePlayerLogins, uniquePlayerLoginsByCountry);
+            if (jsonNode.has("country")) {
+                // Parse as V2
+                LoginMessageV2.Builder builderV2 = LoginMessageV2.newBuilder();
+                JsonFormat.parser().merge(jsonString, builderV2);
+                LoginMessageV2 messageV2 = builderV2.build();
 
-        } catch (InvalidProtocolBufferException e1) {
-            try {
-                // Fallback to V1 schema
+                handleMessageV2(messageV2, uniquePlayerLogins, uniquePlayerLoginsByCountry);
+            } else {
+                // Parse as V1
                 LoginMessageV1.Builder builderV1 = LoginMessageV1.newBuilder();
-                JsonFormat.parser().ignoringUnknownFields().merge(jsonString, builderV1);
+                JsonFormat.parser().merge(jsonString, builderV1);
                 LoginMessageV1 messageV1 = builderV1.build();
 
                 handleMessageV1(messageV1, uniquePlayerLogins);
-
-            } catch (InvalidProtocolBufferException e2) {
-                logger.error("Failed to parse message: {}", e2.getMessage());
             }
+        } catch (Exception e) {
+            logger.error("Failed to parse message: {}", e.getMessage());
         }
     }
 
@@ -60,14 +62,18 @@ public class RecordProcessor {
     }
 
     private void handleMessageV2(LoginMessageV2 message, Set<String> uniquePlayerLogins,
-                                 ConcurrentMap<String, Set<String>> uniquePlayerLoginsByCountry) {
+                             ConcurrentMap<String, Set<String>> uniquePlayerLoginsByCountry) {
         String playerId = message.getPlayerId();
         String country = message.getCountry();
+
+        if (country == null || country.isEmpty()) {
+            logger.warn("Received V2 message with empty country for player ID: {}", playerId);
+            return;
+        }
 
         if (deduplication.isUniquePlayer(playerId)) {
             uniquePlayerLogins.add(playerId);
 
-            // Update country-specific logins
             uniquePlayerLoginsByCountry.computeIfAbsent(country, k -> ConcurrentHashMap.newKeySet())
                     .add(playerId);
 
@@ -76,4 +82,5 @@ public class RecordProcessor {
             logger.debug("Duplicate V2 player ID ignored: {}", playerId);
         }
     }
+
 }
